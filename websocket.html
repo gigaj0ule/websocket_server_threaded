@@ -1,0 +1,124 @@
+<html>
+
+    <head>
+        <!-- This library makes selecting HTML elements easier -->
+        <script type='text/javascript' src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    </head>
+
+    <body>
+        <!-- Page title -->
+        <h1>WebSocket Demo</h1>
+
+        <!-- Button to connect to server -->
+        <input type='button' onclick='server.connectserver()' value='connect'></input>
+        
+        <!-- Input text box -->
+        <input id="ws_input" type='text'></input>
+
+        <!-- Button to send to server -->
+        <input type='button' onclick='send_input_to_websocket()' value='send'></input>
+
+        <!-- We will store our responses here -->
+        <div id="log_div"></div>
+    </body>
+
+
+    <!-- Normally this would be in a separate .js file but not for the purpose of this example -->
+    <script type='text/javascript'>
+
+        // Class to hold our websocket connection
+        class RemoteWebsocketServer {
+        
+            // Constructor
+            constructor(log_element, remote_address) {
+                this.output = log_element;
+                this.websocket_address = remote_address;
+            }
+        
+            // Connects channel to python
+            connectserver() {
+
+                // Create websocket
+                this.websocket = new WebSocket(this.websocket_address);  
+
+                // So callbacks can address this class
+                this.websocket.parent_class = this;  
+
+                // Bind callbacks
+                this.websocket.onopen = this.websocket_onopen;
+                this.websocket.onmessage = this.websocket_onmessage;
+                this.websocket.onclose = this.websocket_onclose;
+                this.websocket.onerror = this.websocket_onerror;
+                return this.websocket;
+            }
+            
+            // On socket open
+            websocket_onopen(event) { 
+                this.parent_class.outputHTML(`Connected to server at ${this.parent_class.websocket_address}`);
+            }
+            
+            // Incoming messages
+            websocket_onmessage(e) {
+                let message = e.data
+                this.parent_class.outputHTML(`IN: ${message}`);
+            }
+            
+            // On socket close
+            websocket_onclose() {
+                this.parent_class.outputHTML(`Closed server connection`)
+            }
+        
+            // On socket error
+            websocket_onerror(e) {
+                this.parent_class.outputHTML(`Error, no server found on ${this.parent_class.websocket_address}`);
+                console.error(e)
+            }
+
+            // Writes new HTML line to logger
+            outputHTML(html) {
+                this.output.insertAdjacentHTML('beforeEnd', `<p>${html}</p>`);
+            }
+        }
+
+        // Configuration
+        var server = null
+        var remote_addr = 'ws://localhost:9000/';
+
+        // This function runs when the page is ready
+        $(document).ready(function() {
+            let log_element = $('#log_div')[0];
+
+            server = new RemoteWebsocketServer(log_element, remote_addr);
+        })
+
+        // This function will send input box to websocket
+        function send_input_to_websocket() {
+            
+            // Get message from input box
+            message = $('#ws_input').val()
+
+            // Print our message to debug log
+            let debug = `OUT: ${message}`;
+            server.outputHTML(debug);
+
+            // Send message to python
+            server.websocket.send(message);
+
+            // Empty input box
+            $('#ws_input').val = '';
+        }
+        
+        // Bind "enter" event to input box
+        $(document).on('keydown', '#ws_input', function(event) {
+            if(event.key === 'Enter') {
+
+                // Send contents of input box to websocket
+                send_input_to_websocket();
+
+                // Avoid form submit
+                return false;
+            }
+        });
+
+    </script>
+</html>
